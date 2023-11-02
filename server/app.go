@@ -2,12 +2,15 @@ package server
 
 import (
 	"context"
+	"encoding/json"
+	"io/ioutil"
 	"log"
-	"net/http"
 	"os"
 	"os/signal"
+	model "scrape-stock-market/models"
 	"scrape-stock-market/stock"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/gocolly/colly"
@@ -22,7 +25,6 @@ import (
 )
 
 type App struct {
-	httpServer   *http.Server
 	stockUsecase stock.UsecaseImpl
 }
 
@@ -33,7 +35,6 @@ func NewApp() *App {
 	stockRepo := _stockMongo.NewStockRepository(db, viper.GetString("mongo.collection"))
 
 	return &App{
-
 		stockUsecase: _stockUsecase.NewStockUsecase(stockRepo, initColly),
 	}
 }
@@ -53,49 +54,43 @@ func (a *App) startCronJob() {
 	scheduler := cron.New(cron.WithLocation(jakartaTime))
 
 	// stop scheduler tepat sebelum fungsi berakhir
-	// defer scheduler.Stop()
+	defer scheduler.Stop()
 
 	scheduler.AddFunc("@every 10s", a.scrapeData)
 	go scheduler.Start()
 
 	// trap SIGINT untuk trigger shutdown.
-	select {}
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
+	<-sig
 }
 
 func (a *App) scrapeData() {
 	// Perform the scraping logic here
-	// Use the stockUsecase to scrape the data and save it
-
-	// Example:
-	err := a.stockUsecase.ScrapeData()
+	// open file symbols.json from storage/symbols.json
+	filePath := "./storage/symbols.json"
+	symbols, err := ioutil.ReadFile(filePath)
 	if err != nil {
-		log.Printf("Failed to scrape data: %v", err)
-	} else {
-		log.Println("Data scraped successfully")
-		// Do something with the scraped data, such as saving it to the database
+		log.Printf("Failed to read file: %v", err)
+		panic(err)
 	}
-}
 
-func (a *App) startHTTPServer(port string) error {
-	// Initialize the HTTP server as before
-	// ...
+	var stockSymbols []model.StockSymbol
+	err = json.Unmarshal(symbols, &stockSymbols)
+	if err != nil {
+		log.Printf("Failed to unmarshal file: %v", err)
+		panic(err)
+	}
 
-	// Start the HTTP server
-	go func() {
-		if err := a.httpServer.ListenAndServe(); err != nil {
-			log.Fatalf("Failed to listen and serve: %v", err)
+	for _, stockSymbol := range stockSymbols {
+		err := a.stockUsecase.ScrapeDataHistory(stockSymbol.Symbol)
+		if err != nil {
+			log.Printf("Failed to scrape data: %v", err)
+			panic(err)
+		} else {
+			log.Println("Data scraped successfully on ", time.Now())
 		}
-	}()
-
-	// Handle shutdown gracefully
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, os.Interrupt, os.Interrupt)
-	<-quit
-
-	ctx, shutdown := context.WithTimeout(context.Background(), 5*time.Second)
-	defer shutdown()
-
-	return a.httpServer.Shutdown(ctx)
+	}
 }
 
 func initDB() *mongo.Database {
@@ -124,7 +119,6 @@ func initColly() *colly.Collector {
 	c := colly.NewCollector(
 		colly.AllowedDomains(viper.GetString("scrape.domain")),
 		colly.CacheDir(viper.GetString("scrape.cache")),
-		colly.Async(true),
 		colly.UserAgent(viper.GetString("scrape.user_agent")),
 	)
 

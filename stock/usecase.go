@@ -1,5 +1,5 @@
 package stock
 
 type UsecaseImpl interface {
-	ScrapeData() error
+	ScrapeDataHistory(symbol string) error
 }

@@ -1,10 +1,7 @@
 package usecase
 
 import (
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	model "scrape-stock-market/models"
 	"scrape-stock-market/stock"
 	_repository "scrape-stock-market/stock/repository/mongo"
 
@@ -24,35 +21,31 @@ func NewStockUsecase(stockrepo *_repository.StockRepository, scrapeColly *colly.
 	}
 }
 
-func (u *StockUsecase) ScrapeData() error {
-	// open file symbols.json from storage/symbols.json
-	filePath := "./storage/symbols.json"
-	symbols, err := ioutil.ReadFile(filePath)
-	if err != nil {
-		return err
-	}
+func (u *StockUsecase) ScrapeDataHistory(symbol string) error {
+	u.scrapeColly.OnHTML(`.BdT.Bdc\(\$seperatorColor\).Ta\(end\).Fz\(s\).Whs\(nw\)`, func(e *colly.HTMLElement) {
+		date := e.ChildText(`td:nth-child(1)`)
+		open := e.ChildText(`td:nth-child(2)`)
+		high := e.ChildText(`td:nth-child(3)`)
+		low := e.ChildText(`td:nth-child(4)`)
+		close := e.ChildText(`td:nth-child(5)`)
+		adjClose := e.ChildText(`td:nth-child(6)`)
+		volume := e.ChildText(`td:nth-child(7)`)
+		fmt.Println(date, open, high, low, close, adjClose, volume)
+	})
 
-	var stockSymbols []model.StockSymbol
-	err = json.Unmarshal(symbols, &stockSymbols)
-	if err != nil {
-		return err
-	}
+	u.scrapeColly.OnRequest(func(r *colly.Request) {
+		fmt.Println("Visiting", r.URL.String())
+	})
 
-	// scrape data from yahoo finance
-	for _, symbol := range stockSymbols {
-		// url := "https://finance.yahoo.com/quote/" + symbol.Symbol
-		url := viper.GetString("scrape.url") + symbol.Link
+	u.scrapeColly.OnError(func(r *colly.Response, err error) {
+		fmt.Println("Request URL:", r.Request.URL, "failed with response:", r, "\nError:", err)
+	})
 
-		u.scrapeColly.OnHTML(`.Fw(b).Fz(36px).Mb(-4px).D(ib)`, func(e *colly.HTMLElement) {
-			fmt.Println("Symbol:", symbol.Symbol)
-		})
+	u.scrapeColly.OnResponse(func(r *colly.Response) {
+		fmt.Println("Visited", r.Request.URL)
+	})
 
-		// u.scrapeColly.OnRequest(func(r *colly.Request) {
-		// 	fmt.Println("Visiting", r.URL)
-		// })
-
-		u.scrapeColly.Visit(url)
-	}
+	u.scrapeColly.Visit(viper.GetString("scrape.url") + "/quote/" + symbol + "/history")
 
 	return nil
 }
