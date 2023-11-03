@@ -1,8 +1,7 @@
 {
     "port": 8080,
     "mongo": {
-        "uri": "mongodb+srv://bangadam:IN97F0gRhXtNEEDU@cluster0.cidd8.mongodb.net/?retryWrites=true&w=majority",
-        "name": "stocks"
+        "uri": "mongodb+srv://bangadam:IN97F0gRhXtNEEDU@cluster0.cidd8.mongodb.net/stockmarket"
     },
     "scrape": {
         "domain": "finance.yahoo.com",

@@ -1,5 +1,7 @@
 package stock
 
+import "context"
+
 type UsecaseImpl interface {
-	ScrapeDataHistory(symbol string) error
+	ScrapeData(ctx context.Context, symbol string) error
 }

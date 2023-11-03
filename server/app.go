@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -32,7 +33,8 @@ func NewApp() *App {
 	db := initDB()
 	initColly := initColly()
 
-	stockRepo := _stockMongo.NewStockRepository(db, viper.GetString("mongo.collection"))
+	// Initialize repository and usecase
+	stockRepo := _stockMongo.NewStockRepository(db, model.StockCollection)
 
 	return &App{
 		stockUsecase: _stockUsecase.NewStockUsecase(stockRepo, initColly),
@@ -56,7 +58,11 @@ func (a *App) startCronJob() {
 	// stop scheduler tepat sebelum fungsi berakhir
 	defer scheduler.Stop()
 
-	scheduler.AddFunc("@every 10s", a.scrapeData)
+	// run cron job first time in a day
+	scheduler.AddFunc("@every 10s", func() {
+		fmt.Println("Running cron job at ", time.Now())
+		a.scrapeData()
+	})
 	go scheduler.Start()
 
 	// trap SIGINT untuk trigger shutdown.
@@ -82,15 +88,27 @@ func (a *App) scrapeData() {
 		panic(err)
 	}
 
+	var wg sync.WaitGroup
+	wg.Add(len(stockSymbols))
+
+	// init context
+	ctx := context.Background()
+
 	for _, stockSymbol := range stockSymbols {
-		err := a.stockUsecase.ScrapeDataHistory(stockSymbol.Symbol)
-		if err != nil {
-			log.Printf("Failed to scrape data: %v", err)
-			panic(err)
-		} else {
-			log.Println("Data scraped successfully on ", time.Now())
-		}
+		go func(symbol string) {
+			defer wg.Done()
+
+			err := a.stockUsecase.ScrapeData(ctx, symbol)
+			if err != nil {
+				log.Printf("Failed to scrape data: %v", err)
+			}
+		}(stockSymbol.Symbol)
 	}
+
+	log.Println("Data scraped successfully on ", time.Now())
+
+	// Wait for all goroutines to finish
+	wg.Wait()
 }
 
 func initDB() *mongo.Database {
