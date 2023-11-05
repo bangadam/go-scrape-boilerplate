@@ -1,12 +1,12 @@
 {
-    "port": 8080,
-    "mongo": {
-        "uri": "mongodb+srv://bangadam:IN97F0gRhXtNEEDU@cluster0.cidd8.mongodb.net/stockmarket"
-    },
-    "scrape": {
-        "domain": "finance.yahoo.com",
-        "cache": "./cache",
-        "url": "https://finance.yahoo.com",
-        "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36"
-    }
+  "port": 8080,
+  "mongo": {
+    "uri": "mongodb+srv://bangadam:IN97F0gRhXtNEEDU@cluster0.cidd8.mongodb.net/stockmarket"
+  },
+  "scrape": {
+    "domain": "finance.yahoo.com",
+    "cache": "./cache",
+    "url": "https://finance.yahoo.com",
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36"
+  }
 }

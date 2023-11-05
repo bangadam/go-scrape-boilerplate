@@ -10,8 +10,19 @@ type StockSymbol struct {
 	Link   string `json:"link" bson:"link"`
 }
 
+// expect struct is
+
 type Stock struct {
 	Symbol string `bson:"symbol"`
+	Data   Data   `bson:"yahoo_finance"`
+}
+
+type Data struct {
+	YahooFinance YahooFinance `bson:"yahoo_finance"`
+}
+
+type YahooFinance struct {
+	ScrapeTime time.Time `bson:"scrape_time"`
 
 	Profile         StockProfile          `bson:"profile"`
 	RealPrice       StockRealPrice        `bson:"real_price"`

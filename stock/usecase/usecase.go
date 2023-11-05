@@ -28,18 +28,22 @@ func NewStockUsecase(stockrepo _repository.RepositoryImpl, scrapeColly *colly.Co
 func (u *StockUsecase) ScrapeData(ctx context.Context, symbol string) error {
 	var stock model.Stock
 
+	// scrape data
+
 	// scrape profile
 	profile := u.scrapeProfile(symbol)
 	stock.Symbol = symbol
-	stock.Profile = profile
+	stock.Data.YahooFinance.ScrapeTime = time.Now()
+
+	stock.Data.YahooFinance.Profile = profile
 
 	// scrape historical price data
 	historicalPrice := u.scrapeHistoricalPrice(symbol)
-	stock.HistoricalPrice = historicalPrice
+	stock.Data.YahooFinance.HistoricalPrice = historicalPrice
 
 	// scrape real price data
 	realPrice := u.scrapeRealPrice(symbol)
-	stock.RealPrice = realPrice
+	stock.Data.YahooFinance.RealPrice = realPrice
 
 	// save to db
 	err := u.stockRepo.CreateOrUpdate(ctx, stock)

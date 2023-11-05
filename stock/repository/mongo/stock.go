@@ -25,28 +25,32 @@ func (u *StockRepository) CreateOrUpdate(ctx context.Context, stock model.Stock)
 
 	changed := bson.M{}
 
-	if stock.Profile.Company != "" {
-		changed["profile.company"] = stock.Profile.Company
-	}
-	if stock.Profile.Address != "" {
-		changed["profile.address"] = stock.Profile.Address
-	}
-	if stock.Profile.Sector != "" {
-		changed["profile.sector"] = stock.Profile.Sector
-	}
-	if stock.Profile.Industry != "" {
-		changed["profile.industry"] = stock.Profile.Industry
+	if !stock.Data.YahooFinance.ScrapeTime.IsZero() {
+		changed["data.yahoo_finance.scrape_time"] = stock.Data.YahooFinance.ScrapeTime
 	}
 
-	if len(stock.HistoricalPrice) > 0 {
-		changed["historical_price"] = stock.HistoricalPrice
+	if stock.Data.YahooFinance.Profile.Company != "" {
+		changed["data.yahoo_finance.profile.company"] = stock.Data.YahooFinance.Profile.Company
+	}
+	if stock.Data.YahooFinance.Profile.Address != "" {
+		changed["data.yahoo_finance.profile.address"] = stock.Data.YahooFinance.Profile.Address
+	}
+	if stock.Data.YahooFinance.Profile.Sector != "" {
+		changed["data.yahoo_finance.profile.sector"] = stock.Data.YahooFinance.Profile.Sector
+	}
+	if stock.Data.YahooFinance.Profile.Industry != "" {
+		changed["data.yahoo_finance.profile.industry"] = stock.Data.YahooFinance.Profile.Industry
 	}
 
-	if stock.RealPrice.CurrentPrice != 0 {
-		changed["real_price.current_price"] = stock.RealPrice.CurrentPrice
+	if len(stock.Data.YahooFinance.HistoricalPrice) > 0 {
+		changed["data.yahoo_finance.historical_price"] = stock.Data.YahooFinance.HistoricalPrice
 	}
-	if stock.RealPrice.UpDownPrice != "" {
-		changed["real_price.up_down_price"] = stock.RealPrice.UpDownPrice
+
+	if stock.Data.YahooFinance.RealPrice.CurrentPrice != 0 {
+		changed["data.yahoo_finance.real_price.current_price"] = stock.Data.YahooFinance.RealPrice.CurrentPrice
+	}
+	if stock.Data.YahooFinance.RealPrice.UpDownPrice != "" {
+		changed["data.yahoo_finance.real_price.up_down_price"] = stock.Data.YahooFinance.RealPrice.UpDownPrice
 	}
 
 	updateOptions := options.Update().SetUpsert(true)
