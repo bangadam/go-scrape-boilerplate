@@ -88,27 +88,27 @@ func (a *App) scrapeData() {
 		panic(err)
 	}
 
-	var wg sync.WaitGroup
-	wg.Add(len(stockSymbols))
+	// var wg sync.WaitGroup
+	// wg.Add(len(stockSymbols))
 
 	// init context
 	ctx := context.Background()
 
 	for _, stockSymbol := range stockSymbols {
-		go func(symbol string) {
-			defer wg.Done()
+		// go func(symbol string) {
+		// 	defer wg.Done()
 
-			err := a.stockUsecase.ScrapeData(ctx, symbol)
-			if err != nil {
-				log.Printf("Failed to scrape data: %v", err)
-			}
-		}(stockSymbol.Symbol)
+		err := a.stockUsecase.ScrapeData(ctx, stockSymbol.Symbol)
+		if err != nil {
+			log.Printf("Failed to scrape data: %v", err)
+		}
+		// }(stockSymbol.Symbol)
 	}
 
 	log.Println("Data scraped successfully on ", time.Now())
 
 	// Wait for all goroutines to finish
-	wg.Wait()
+	// wg.Wait()
 }
 
 func initDB() *mongo.Database {

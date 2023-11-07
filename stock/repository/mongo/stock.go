@@ -21,36 +21,34 @@ func NewStockRepository(db *mongo.Database, collection string) stock.RepositoryI
 }
 
 func (u *StockRepository) CreateOrUpdate(ctx context.Context, stock model.Stock) error {
+	// find stock by symbol
+	var stockData model.Stock
+	u.db.FindOne(ctx, bson.M{"symbol": stock.Symbol}).Decode(&stockData)
+
 	filter := bson.M{"symbol": stock.Symbol}
 
 	changed := bson.M{}
 
-	if !stock.Data.YahooFinance.ScrapeTime.IsZero() {
-		changed["data.yahoo_finance.scrape_time"] = stock.Data.YahooFinance.ScrapeTime
+	if stock.Symbol != "" {
+		changed["symbol"] = stock.Symbol
 	}
 
-	if stock.Data.YahooFinance.Profile.Company != "" {
-		changed["data.yahoo_finance.profile.company"] = stock.Data.YahooFinance.Profile.Company
-	}
-	if stock.Data.YahooFinance.Profile.Address != "" {
-		changed["data.yahoo_finance.profile.address"] = stock.Data.YahooFinance.Profile.Address
-	}
-	if stock.Data.YahooFinance.Profile.Sector != "" {
-		changed["data.yahoo_finance.profile.sector"] = stock.Data.YahooFinance.Profile.Sector
-	}
-	if stock.Data.YahooFinance.Profile.Industry != "" {
-		changed["data.yahoo_finance.profile.industry"] = stock.Data.YahooFinance.Profile.Industry
+	if stock.Name != "" {
+		changed["name"] = stock.Name
 	}
 
-	if len(stock.Data.YahooFinance.HistoricalPrice) > 0 {
-		changed["data.yahoo_finance.historical_price"] = stock.Data.YahooFinance.HistoricalPrice
+	if stock.Index != "" {
+		changed["index"] = stock.Index
 	}
 
-	if stock.Data.YahooFinance.RealPrice.CurrentPrice != 0 {
-		changed["data.yahoo_finance.real_price.current_price"] = stock.Data.YahooFinance.RealPrice.CurrentPrice
+	if len(stock.PriceHistory) > 0 {
+		stockData.PriceHistory = append(stockData.PriceHistory, stock.PriceHistory...)
+		changed["price_history"] = stockData.PriceHistory
 	}
-	if stock.Data.YahooFinance.RealPrice.UpDownPrice != "" {
-		changed["data.yahoo_finance.real_price.up_down_price"] = stock.Data.YahooFinance.RealPrice.UpDownPrice
+
+	if len(stock.PriceHistoryDaily) > 0 {
+		stockData.PriceHistoryDaily = append(stockData.PriceHistoryDaily, stock.PriceHistoryDaily...)
+		changed["price_history_daily"] = stockData.PriceHistoryDaily
 	}
 
 	updateOptions := options.Update().SetUpsert(true)

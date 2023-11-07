@@ -2,7 +2,7 @@ package model
 
 import "time"
 
-const StockCollection = "stock"
+const StockCollection = "stock_yahoo"
 
 type StockSymbol struct {
 	Symbol string `json:"symbol" bson:"symbol"`
@@ -13,20 +13,29 @@ type StockSymbol struct {
 // expect struct is
 
 type Stock struct {
-	Symbol string `bson:"symbol"`
-	Data   Data   `bson:"yahoo_finance"`
+	Symbol            string                   `bson:"symbol"`
+	Name              string                   `bson:"name"`
+	Index             string                   `bson:"index"`
+	PriceHistory      []StockPriceHistory      `bson:"price_history"`
+	PriceHistoryDaily []StockPriceHistoryDaily `bson:"price_history_daily"`
 }
 
-type Data struct {
-	YahooFinance YahooFinance `bson:"yahoo_finance"`
+type StockPriceHistory struct {
+	ScrapeTime       time.Time `bson:"scrape_time"`
+	Price            string    `bson:"price"`
+	UpDownPrice      string    `bson:"up_down_price"`
+	UpDownPercentage string    `bson:"up_down_percentage"`
 }
 
-type YahooFinance struct {
+type StockPriceHistoryDaily struct {
 	ScrapeTime time.Time `bson:"scrape_time"`
-
-	Profile         StockProfile          `bson:"profile"`
-	RealPrice       StockRealPrice        `bson:"real_price"`
-	HistoricalPrice []StockHistoricalData `bson:"historical_price"`
+	Date       time.Time `json:"date" bson:"date"`
+	Open       float64   `json:"open" bson:"open"`
+	High       float64   `json:"high" bson:"high"`
+	Low        float64   `json:"low" bson:"low"`
+	Close      float64   `json:"close" bson:"close"`
+	AdjClose   float64   `json:"adj_close" bson:"adj_close"`
+	Volume     int64     `json:"volume" bson:"volume"`
 }
 
 type StockHistoricalData struct {

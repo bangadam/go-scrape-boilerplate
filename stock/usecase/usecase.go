@@ -27,24 +27,26 @@ func NewStockUsecase(stockrepo _repository.RepositoryImpl, scrapeColly *colly.Co
 
 func (u *StockUsecase) ScrapeData(ctx context.Context, symbol string) error {
 	var stock model.Stock
-
-	// scrape data
-
+	scrapeTime := time.Now()
 	// scrape profile
 	profile := u.scrapeProfile(symbol)
 	stock.Symbol = symbol
-	stock.Data.YahooFinance.ScrapeTime = time.Now()
-
-	stock.Data.YahooFinance.Profile = profile
+	stock.Name = profile.Company
 
 	// scrape historical price data
-	historicalPrice := u.scrapeHistoricalPrice(symbol)
-	stock.Data.YahooFinance.HistoricalPrice = historicalPrice
+	stockPriceHistoryDaily := u.scrapeHistoricalPrice(symbol, scrapeTime)
+	stock.PriceHistoryDaily = stockPriceHistoryDaily
 
 	// scrape real price data
-	realPrice := u.scrapeRealPrice(symbol)
-	stock.Data.YahooFinance.RealPrice = realPrice
+	realPrice := u.scrapeRealPrice(symbol, scrapeTime)
+	stock.PriceHistory = append(stock.PriceHistory, realPrice)
 
+	// convert to json
+	// realPriceJSON, err := json.Marshal(stock)
+	// if err != nil {
+	// 	fmt.Println(err)
+	// }
+	// fmt.Println(string(realPriceJSON))
 	// save to db
 	err := u.stockRepo.CreateOrUpdate(ctx, stock)
 	if err != nil {
@@ -54,49 +56,48 @@ func (u *StockUsecase) ScrapeData(ctx context.Context, symbol string) error {
 	return nil
 }
 
-func (u *StockUsecase) scrapeRealPrice(symbol string) (realPrice model.StockRealPrice) {
+func (u *StockUsecase) scrapeRealPrice(symbol string, scrapeTime time.Time) (realPrice model.StockPriceHistory) {
 	newColly := u.scrapeColly.Clone()
 	// Increase the timeout duration
-	newColly.SetRequestTimeout(30 * time.Second) // Adjust the timeout value as needed
+	// newColly.SetRequestTimeout(30 * time.Second) // Adjust the timeout value as needed
 	var (
-		currentPrice float64
-		upDownPrice  string
+		currentPrice     string
+		upDownPrice      string
+		upDownPercentage string
 	)
 
-	newColly.OnHTML(`#quote-header-info > div.My\(6px\).Pos\(r\).smartphone_Mt\(6px\).W\(100\%\) > div.D\(ib\).Va\(m\).Maw\(65\%\).Ov\(h\) > div.D\(ib\).Mend\(20px\) > fin-streamer.Fw\(b\).Fz\(36px\).Mb\(-4px\).D\(ib\)`, func(e *colly.HTMLElement) {
-		currentPrice = utils.StringToFloat64(e.Text)
+	newColly.OnHTML(`#quote-header-info > div.My\(6px\).Pos\(r\).smartphone_Mt\(6px\).W\(100\%\) > div.D\(ib\).Va\(m\).Maw\(65\%\).Ov\(h\) > div > fin-streamer.Fw\(b\).Fz\(36px\).Mb\(-4px\).D\(ib\)`, func(e *colly.HTMLElement) {
+		currentPrice = e.Attr("value")
 	})
 
 	newColly.OnHTML(`#quote-header-info > div.My\(6px\).Pos\(r\).smartphone_Mt\(6px\).W\(100\%\) > div.D\(ib\).Va\(m\).Maw\(65\%\).Ov\(h\) > div.D\(ib\).Mend\(20px\) > fin-streamer:nth-child(2) > span`, func(e *colly.HTMLElement) {
 		upDownPrice = e.Text
 	})
 
-	newColly.OnRequest(func(r *colly.Request) {
-		fmt.Println("Visiting", r.URL.String())
+	newColly.OnHTML(`#quote-header-info > div.My\(6px\).Pos\(r\).smartphone_Mt\(6px\).W\(100\%\) > div.D\(ib\).Va\(m\).Maw\(65\%\).Ov\(h\) > div.D\(ib\).Mend\(20px\) > fin-streamer:nth-child(3) > span`, func(e *colly.HTMLElement) {
+		upDownPercentage = e.Text
 	})
 
 	newColly.OnError(func(r *colly.Response, err error) {
 		fmt.Println("Request URL:", r.Request.URL, "failed with response:", r, "\nError:", err)
 	})
 
-	newColly.OnResponse(func(r *colly.Response) {
-		fmt.Println("Visited", r.Request.URL)
-	})
-
 	// url https://https://finance.yahoo.com/quote/AAPL?p=AAPL
 	newColly.Visit(viper.GetString("scrape.url") + "/quote/" + symbol + "?p=" + symbol)
 
 	// set data
-	realPrice.CurrentPrice = currentPrice
+	realPrice.ScrapeTime = scrapeTime
+	realPrice.Price = currentPrice
 	realPrice.UpDownPrice = upDownPrice
+	realPrice.UpDownPercentage = upDownPercentage
 
 	return realPrice
 }
 
-func (u *StockUsecase) scrapeHistoricalPrice(symbol string) (historicalPrices []model.StockHistoricalData) {
+func (u *StockUsecase) scrapeHistoricalPrice(symbol string, scrapeTime time.Time) (historicalPrices []model.StockPriceHistoryDaily) {
 	newColly := u.scrapeColly.Clone()
 	// Increase the timeout duration
-	newColly.SetRequestTimeout(30 * time.Second) // Adjust the timeout value as needed
+	// newColly.SetRequestTimeout(30 * time.Second) // Adjust the timeout value as needed
 
 	newColly.OnHTML(`.BdT.Bdc\(\$seperatorColor\).Ta\(end\).Fz\(s\).Whs\(nw\)`, func(e *colly.HTMLElement) {
 		date := e.ChildText(`td:nth-child(1)`)
@@ -116,29 +117,22 @@ func (u *StockUsecase) scrapeHistoricalPrice(symbol string) (historicalPrices []
 		adjCloseParse := utils.StringToFloat64(adjClose)
 		volumeParse := utils.StringToInt64(volume)
 
-		historicalPrice := model.StockHistoricalData{
-			Date:     dateParse,
-			Open:     openParse,
-			High:     highParse,
-			Low:      lowParse,
-			Close:    closeParse,
-			AdjClose: adjCloseParse,
-			Volume:   volumeParse,
+		stockPriceHistoryDaily := model.StockPriceHistoryDaily{
+			ScrapeTime: scrapeTime,
+			Date:       dateParse,
+			Open:       openParse,
+			High:       highParse,
+			Low:        lowParse,
+			Close:      closeParse,
+			AdjClose:   adjCloseParse,
+			Volume:     volumeParse,
 		}
 
-		historicalPrices = append(historicalPrices, historicalPrice)
-	})
-
-	newColly.OnRequest(func(r *colly.Request) {
-		fmt.Println("Visiting", r.URL.String())
+		historicalPrices = append(historicalPrices, stockPriceHistoryDaily)
 	})
 
 	newColly.OnError(func(r *colly.Response, err error) {
 		fmt.Println("Request URL:", r.Request.URL, "failed with response:", r, "\nError:", err)
-	})
-
-	newColly.OnResponse(func(r *colly.Response) {
-		fmt.Println("Visited", r.Request.URL)
 	})
 
 	newColly.Visit(viper.GetString("scrape.url") + "/quote/" + symbol + "/history?p=" + symbol)
@@ -149,7 +143,7 @@ func (u *StockUsecase) scrapeHistoricalPrice(symbol string) (historicalPrices []
 func (u *StockUsecase) scrapeProfile(symbol string) (profile model.StockProfile) {
 	newColly := u.scrapeColly.Clone()
 	// Increase the timeout duration
-	newColly.SetRequestTimeout(30 * time.Second) // Adjust the timeout value as needed
+	// newColly.SetRequestTimeout(30 * time.Second) // Adjust the timeout value as needed
 
 	var company, address, sector, industry string
 
@@ -171,10 +165,6 @@ func (u *StockUsecase) scrapeProfile(symbol string) (profile model.StockProfile)
 	// industry
 	newColly.OnHTML(`#Col1-0-Profile-Proxy > section > div.asset-profile-container > div > div > p.D\(ib\).Va\(t\) > span:nth-child(5)`, func(e *colly.HTMLElement) {
 		industry = e.Text
-	})
-
-	newColly.OnRequest(func(r *colly.Request) {
-		fmt.Println("Visiting", r.URL.String())
 	})
 
 	newColly.OnError(func(r *colly.Response, err error) {
