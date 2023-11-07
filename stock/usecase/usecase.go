@@ -18,16 +18,29 @@ type StockUsecase struct {
 	scrapeColly *colly.Collector
 }
 
-func NewStockUsecase(stockrepo _repository.RepositoryImpl, scrapeColly *colly.Collector) stock.UsecaseImpl {
+func NewStockUsecase(stockrepo _repository.RepositoryImpl) stock.UsecaseImpl {
 	return &StockUsecase{
-		stockRepo:   stockrepo,
-		scrapeColly: scrapeColly,
+		stockRepo: stockrepo,
 	}
+}
+
+func initColly() *colly.Collector {
+	c := colly.NewCollector(
+		colly.AllowedDomains(viper.GetString("scrape.domain")),
+		colly.CacheDir(viper.GetString("scrape.cache")),
+		colly.UserAgent(viper.GetString("scrape.user_agent")),
+	)
+
+	return c
 }
 
 func (u *StockUsecase) ScrapeData(ctx context.Context, symbol string) error {
 	var stock model.Stock
 	scrapeTime := time.Now()
+
+	// init colly
+	u.scrapeColly = initColly()
+
 	// scrape profile
 	profile := u.scrapeProfile(symbol)
 	stock.Symbol = symbol

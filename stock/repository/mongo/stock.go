@@ -42,8 +42,16 @@ func (u *StockRepository) CreateOrUpdate(ctx context.Context, stock model.Stock)
 	}
 
 	if len(stock.PriceHistory) > 0 {
-		stockData.PriceHistory = append(stockData.PriceHistory, stock.PriceHistory...)
-		changed["price_history"] = stockData.PriceHistory
+		var isExist bool
+		for _, price := range stock.PriceHistory {
+			if price.Price != "" {
+				isExist = true
+			}
+		}
+		if isExist {
+			stockData.PriceHistory = append(stockData.PriceHistory, stock.PriceHistory...)
+			changed["price_history"] = stockData.PriceHistory
+		}
 	}
 
 	if len(stock.PriceHistoryDaily) > 0 {

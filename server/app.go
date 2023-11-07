@@ -14,7 +14,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/gocolly/colly"
 	cron "github.com/robfig/cron/v3"
 	"github.com/spf13/viper"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -31,13 +30,12 @@ type App struct {
 
 func NewApp() *App {
 	db := initDB()
-	initColly := initColly()
 
 	// Initialize repository and usecase
 	stockRepo := _stockMongo.NewStockRepository(db, model.StockCollection)
 
 	return &App{
-		stockUsecase: _stockUsecase.NewStockUsecase(stockRepo, initColly),
+		stockUsecase: _stockUsecase.NewStockUsecase(stockRepo),
 	}
 }
 
@@ -59,7 +57,7 @@ func (a *App) startCronJob() {
 	defer scheduler.Stop()
 
 	// run cron job first time in a day
-	scheduler.AddFunc("@every 10s", func() {
+	scheduler.AddFunc("@every 20s", func() {
 		fmt.Println("Running cron job at ", time.Now())
 		a.scrapeData()
 	})
@@ -131,14 +129,4 @@ func initDB() *mongo.Database {
 		mongoDatastore = client.Database(connstr.Database)
 	})
 	return mongoDatastore
-}
-
-func initColly() *colly.Collector {
-	c := colly.NewCollector(
-		colly.AllowedDomains(viper.GetString("scrape.domain")),
-		colly.CacheDir(viper.GetString("scrape.cache")),
-		colly.UserAgent(viper.GetString("scrape.user_agent")),
-	)
-
-	return c
 }
